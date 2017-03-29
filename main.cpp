@@ -4,7 +4,7 @@
 #include <QCommandLineParser>
 #include <iostream>
 #include <stdio.h>
-
+#include "serial.h"
 
 void myMessageOutput(QtMsgType type, const QMessageLogContext &context, const QString &msg)
 {
@@ -57,6 +57,8 @@ int main(int argc, char *argv[])
     if ( parser.isSet(optShow) ) {
         bshowPorts = true;
         out << "You have chosen: show available ports." << endl;
+        Serial::showPorts( out );
+        return 0;
     }
 
     if ( parser.isSet( optConnect ) ) {
