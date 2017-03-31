@@ -3,13 +3,31 @@
 
 #include <QString>
 #include <QTextStream>
+#include <QSerialPort>
 
-class Serial
+class Serial : QSerialPort
 {
+    const char CON   = 0x7F;
+    const char ACK   = 0x79;
+
 public:
-    Serial();
+    Serial( QString &portName, qint32 baudR );
+    virtual ~Serial() {
+    }
 
     static void showPorts( QTextStream &out );
+
+    bool connect( QTextStream &out );
+
+    QString getPortName() {
+        return portName();
+    }
+    QString getBaudRate() {
+        return QString::number( baudRate() );
+    }
+
+private:
+    QString port;
 };
 
 #endif // SERIAL_H
