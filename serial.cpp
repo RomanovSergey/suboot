@@ -2,16 +2,6 @@
 #include <QSerialPortInfo>
 #include <QList>
 
-Serial::Serial( QString &portName, qint32 baudR )
-{
-    setPortName( portName );
-    setBaudRate( baudR );
-    setDataBits( QSerialPort::Data8 );
-    setFlowControl( QSerialPort::NoFlowControl );
-    setParity( QSerialPort::EvenParity );
-    setStopBits( QSerialPort::OneStop );
-}
-
 void Serial::showPorts( QTextStream &out )
 {
     const QString blankString = QObject::tr("N/A");
@@ -38,57 +28,106 @@ void Serial::showPorts( QTextStream &out )
             << "Serial number: " << (!serialNumber.isEmpty() ? serialNumber : blankString) << endl
             << "Busy: " << (spi.isBusy() ? "Yes" : "No") << endl;
     }
-
 }
 
-/*
- * Wait for connect and ACK byte from the board.
- */
-bool Serial::connect( QTextStream &out )
+Serial::Serial( QTextStream &outstr, QString &portName, qint32 baudR ) : out(outstr)
 {
-    bool ret = false;
-    char buf[5] = {0};
-    char ch;
-    int count = 0;
+    setPortName( portName );
+    setBaudRate( baudR );
+    setDataBits( QSerialPort::Data8 );
+    setFlowControl( QSerialPort::NoFlowControl );
+    setParity( QSerialPort::EvenParity );
+    setStopBits( QSerialPort::OneStop );
+}
 
-    out << "Connection ..." << endl;
+bool Serial::Open()
+{
     if ( !open( QIODevice::ReadWrite ) ) {
         out << "Error: can't open port" << endl;
         close();
         return false;
     }
+    return true;
+}
 
-    forever {
-        writeData( &CON, 1 );
+void Serial::Close()
+{
+    close();
+}
 
-        if ( !waitForBytesWritten( 200 ) ) {
-            out << "Error: can't write to port on connect" << endl;
-            break;
-        }
+bool Serial::sendcmd( char cmd, QByteArray &answer)
+{
+    qint64 num;
+    QByteArray wba;
 
-        if ( !waitForReadyRead( 500 ) ) {
-            out << "Error: no data read on connect" << endl;
-            break;
-        }
+    wba[0] = cmd;
+    wba[1] = 0xFF; // ? not documented, but without it do not work
+    wba[2] = ~wba[0];
 
-        ch = read( buf, 1 );
-        if ( buf[0] == ACK ) {
-            out << "Get ACK byte on connect" << endl;
+    num = write( wba );
+    if ( num != wba.size() ) {
+        out << "Error: can't write to port, write ret=" << (int)num << endl;
+        return false;
+    } else {
+        out << "send: " << wba.size() << " bytes" << endl;
+    }
+    if ( !waitForReadyRead( 500 ) ) {
+        out << "Error: no data read on cmd Get" << endl;
+        return false;
+    }
+    answer = read( 50 );
+    return true;
+}
+
+/*
+ * Wait for connect and ACK byte from the board.
+ */
+bool Serial::cmdConnect()
+{
+    bool ret = false;
+    QByteArray answer;
+
+    if ( sendcmd( CON, answer ) ) {
+        out << "We read " << answer.size() << " bytes" << endl;
+        if ( answer[0] == ACK ) {
+            out << "Get ACK byte on cmd Get" << endl;
             ret = true;
-            break;
+            out << showbase;
         } else {
-            out << "Left byte: " << hex << ch << dec << " recived" << endl;
+            out << "Left byte: " << hex << (quint8)answer[0] << dec << endl;
         }
-        count++;
-        if ( count == 5 ) {
-            out << "Error: no ACK byte" << endl;
-            break;
-        }
-        out << "Next iteration: " << count << endl;
+    } else {
+        out << "Failed" << endl;
+    }
+    return ret;
+}
+
+bool Serial::cmdGet()
+{
+    bool ret = false;
+    QByteArray answer;
+
+    if ( !cmdConnect() ) {
+        out << "Error: can't to connect to board" << endl;
+        return false;
     }
 
+    if ( sendcmd( GET, answer ) ) {
+        out << "We read " << answer.size() << " bytes" << endl;
+        if ( answer[0] == ACK ) {
+            out << "Get ACK byte on cmd Get" << endl;
+            ret = true;
+            out << showbase;
 
-    close();
+            for ( int i = 0; i < answer.size(); i++ ) {
+                out << "read[" << dec << i+1 << "]=" << hex << (quint8)(answer[i]) << endl;
+            }
+        } else {
+            out << "Left byte: " << hex << (quint8)answer[0] << dec << " recived" << endl;
+        }
+    } else {
+        out << "Failed" << endl;
+    }
     return ret;
 }
 

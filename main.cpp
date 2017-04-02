@@ -37,8 +37,7 @@ int main(int argc, char *argv[])
 
     QTextStream out(stdout);
 
-    bool bconnect = false;
-    bool bshowPorts = false;
+    bool bcmd = false;
     QString port; // serial port name
     qint32 baudRate; // serial baud rate
 
@@ -68,16 +67,20 @@ int main(int argc, char *argv[])
     parser.addOption( optBaudrate );
 
     // option for Connection check to the stm32 bootloader
-    QCommandLineOption optConnect( QStringList( {"c", "connect"} ) );
-    optConnect.setDescription( "Wait for connect and ACK byte from the board." );
-    parser.addOption( optConnect );
+//    QCommandLineOption optConnect( QStringList( {"c", "connect"} ) );
+//    optConnect.setDescription( "Wait for connect and ACK byte from the board." );
+    QCommandLineOption optCmd( QStringList( {"c", "cmd"} ) );
+    optCmd.setDescription( "Pass command, next commands are allowed:\n"
+                               "<connect> - Test for connection with stm's bootloader.\n"
+                               "<get>     - Gets the version and the allowed commands supported by the current version of the bootloader.");
+    optCmd.setValueName("command");
+    parser.addOption( optCmd );
 
     parser.process( a ); // Process the actual command line arguments given by the user
     // ================================================================================
 
 
     if ( parser.isSet(optShow) ) {
-        bshowPorts = true;
         out << "You have chosen: show available ports." << endl;
         Serial::showPorts( out );
         return 0;
@@ -96,20 +99,38 @@ int main(int argc, char *argv[])
         return -1;
     }
 
-    Serial se( port, baudRate );
+    if ( parser.isSet( optCmd ) ) {
+        bcmd = true;
+    }
+
+    if ( !bcmd ) {
+        out << "You must add command line option." << endl;
+        return -1;
+    }
+
+    Serial se( out, port, baudRate );
     out << "PortName: " << se.getPortName() << endl;
     out << "BaudRate: " << se.getBaudRate() << endl;
 
-    if ( parser.isSet( optConnect ) ) {
-        bconnect = true;
-        out << "You have chosen: connect to board" << endl;
-        se.connect( out );
+    se.Open();
+
+    if ( bcmd == true ) {
+        QString cmd = parser.value( optCmd );
+
+        if ( cmd == "connect" ) // connect test
+        {
+            se.cmdConnect();
+        } else if ( cmd == "get" ) // get cmd 0x00
+        {
+            se.cmdGet();
+        } else
+        {
+            out << "unknown command: " << cmd << endl;
+        }
         return 0;
     }
 
-    if ( !bconnect && !bshowPorts ) {
-        out << "You must add command line option." << endl;
-    }
+    se.Close();
 
     return 0; //a.exec();
 }
