@@ -119,9 +119,19 @@ bool Serial::cmdGet()
             ret = true;
             out << showbase;
 
-            for ( int i = 0; i < answer.size(); i++ ) {
-                out << "read[" << dec << i+1 << "]=" << hex << (quint8)(answer[i]) << endl;
+            if ( answer.size() < 3 ) {
+                out << "Get cmd, too short answer: " << answer.size() << endl;
+                return false;
             }
+            quint8 len = answer[1];
+            m_cmds.clear();
+            m_cmds.resize( len );
+            m_bootLoaderVersion = answer[2];
+            for ( int i = 0; i < len; i++ ) {
+                out << "cmd(" << dec << i << ")=" << hex << (quint8)(answer[i+3]) << endl;
+                m_cmds.append( answer[i+3] );
+            }
+
         } else {
             out << "Left byte: " << hex << (quint8)answer[0] << dec << " recived" << endl;
         }

@@ -7,10 +7,13 @@
 
 class Serial : QSerialPort
 {
-    const char CON   = 0x7F;
-    const char ACK   = 0x79;
-    const char NACK  = 0x1F;
-    const char GET   = 0x00;
+    const char CON   = 0x7F; // connection - take a link with board
+    const char ACK   = 0x79; // good answer from board
+    const char NACK  = 0x1F; // bad  answer from board
+    const char GET   = 0x00; // Get command
+
+    quint8 m_bootLoaderVersion = 0;
+    QByteArray m_cmds;
 
 public:
     Serial( QTextStream &outstr, QString &portName, qint32 baudR );
