@@ -90,7 +90,7 @@ bool Serial::cmdConnect()
     if ( sendcmd( CON, answer ) ) {
         out << "We read " << answer.size() << " bytes" << endl;
         if ( answer[0] == ACK ) {
-            out << "Get ACK byte on cmd Get" << endl;
+            out << "Get ACK byte on cmd Connect" << endl;
             ret = true;
             out << showbase;
         } else {
@@ -127,6 +127,7 @@ bool Serial::cmdGet()
             m_cmds.clear();
             m_cmds.resize( len );
             m_bootLoaderVersion = answer[2];
+            out << "Boot Loader ver: " << hex << uppercasedigits << m_bootLoaderVersion << endl;
             for ( int i = 0; i < len; i++ ) {
                 out << "cmd(" << dec << i << ")=" << hex << (quint8)(answer[i+3]) << endl;
                 m_cmds.append( answer[i+3] );
@@ -141,3 +142,26 @@ bool Serial::cmdGet()
     return ret;
 }
 
+bool Serial::cmdWrite( QString )//w )
+{
+    bool ret = false;
+    QByteArray answer;
+
+    if ( !cmdConnect() ) {
+        out << "Error: can't to connect to board" << endl;
+        return false;
+    }
+
+    if ( sendcmd( WRT, answer ) ) {
+        out << "We read " << answer.size() << " bytes" << endl;
+        if ( answer[0] == ACK ) {
+            out << "Get ACK byte on cmd Write memory" << endl;
+            ret = true;
+        } else {
+            out << "Left byte: " << hex << (quint8)answer[0] << dec << " recived" << endl;
+        }
+    } else {
+        out << "Failed" << endl;
+    }
+    return ret;
+}

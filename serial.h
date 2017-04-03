@@ -11,6 +11,7 @@ class Serial : QSerialPort
     const char ACK   = 0x79; // good answer from board
     const char NACK  = 0x1F; // bad  answer from board
     const char GET   = 0x00; // Get command
+    const char WRT   = 0x31; // Write memory command
 
     quint8 m_bootLoaderVersion = 0;
     QByteArray m_cmds;
@@ -35,6 +36,7 @@ public:
 
     bool cmdConnect();
     bool cmdGet();
+    bool cmdWrite( QString w );
 
 private:
     QTextStream &out;

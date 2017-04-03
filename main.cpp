@@ -41,6 +41,9 @@ int main(int argc, char *argv[])
     QString port; // serial port name
     qint32 baudRate; // serial baud rate
 
+    bool bwrt = false;
+    QString wrt;
+
     QCommandLineParser parser;
     parser.setApplicationDescription("App for stm32 flash erase, write, read via boot loader");
     parser.addHelpOption();
@@ -66,19 +69,23 @@ int main(int argc, char *argv[])
     optBaudrate.setDefaultValue("115200");
     parser.addOption( optBaudrate );
 
-    // option for Connection check to the stm32 bootloader
-//    QCommandLineOption optConnect( QStringList( {"c", "connect"} ) );
-//    optConnect.setDescription( "Wait for connect and ACK byte from the board." );
+    // option for different commands
     QCommandLineOption optCmd( QStringList( {"c", "cmd"} ) );
     optCmd.setDescription( "Pass command, next commands are allowed:\n"
                                "<connect> - Test for connection with stm's bootloader.\n"
-                               "<get>     - Gets the version and the allowed commands supported by the current version of the bootloader.");
+                               "<get>     - Gets the version and the allowed commands supported by the current version of the bootloader.\n");
     optCmd.setValueName("command");
     parser.addOption( optCmd );
 
-    parser.process( a ); // Process the actual command line arguments given by the user
-    // ================================================================================
+    QCommandLineOption optWrite( QStringList( {"w", "write"} ) );
+    optWrite.setDescription("Write operation. Default address 0x08000000.");
+    optWrite.setValueName("address");
+    optWrite.setDefaultValue("0x08000000");
+    parser.addOption( optWrite );
 
+    parser.process( a ); // Process the actual command line arguments given by the user
+
+    // ================================================================================
 
     if ( parser.isSet(optShow) ) {
         out << "You have chosen: show available ports." << endl;
@@ -103,7 +110,12 @@ int main(int argc, char *argv[])
         bcmd = true;
     }
 
-    if ( !bcmd ) {
+    if ( parser.isSet( optWrite ) ) {
+        bwrt = true;
+        wrt = parser.value( optWrite );
+    }
+
+    if ( !bcmd && !bwrt ) {
         out << "You must add command line option." << endl;
         return -1;
     }
@@ -127,7 +139,10 @@ int main(int argc, char *argv[])
         {
             out << "unknown command: " << cmd << endl;
         }
-        return 0;
+    }
+
+    if ( bwrt == true ) {
+        se.cmdWrite( wrt );
     }
 
     se.Close();
