@@ -37,7 +37,7 @@ Serial::Serial( QTextStream &outstr, QString &portName, qint32 baudR ) : out(out
     setDataBits( QSerialPort::Data8 );
     setFlowControl( QSerialPort::NoFlowControl );
     setParity( QSerialPort::EvenParity );
-    setStopBits( QSerialPort::OneStop );
+    setStopBits( QSerialPort::TwoStop );
 }
 
 bool Serial::Open()
@@ -142,10 +142,37 @@ bool Serial::cmdGet()
     return ret;
 }
 
-bool Serial::cmdWrite( QString )//w )
+void fillArrayFromQuint32( quint32 val, QByteArray &ba )
+{
+    ba.clear();
+    ba.append( (char)(val >> 24) );
+    ba.append( 0xFF );
+    ba.append( (char)(val >> 16) );
+    ba.append( 0xFF );
+    ba.append( (char)(val >> 8) );
+    ba.append( 0xFF );
+    ba.append( (char)(val >> 0) );
+    ba.append( 0xFF );
+}
+
+char calcXOR( QByteArray &ba )
+{
+    char vxor = 0;
+    for ( int i = 0; i < ba.size(); i++ ) {
+        vxor ^= ba[i];
+    }
+    return 0x08;
+}
+
+bool Serial::cmdWrite( quint32 adr )
 {
     bool ret = false;
     QByteArray answer;
+    QByteArray wba;
+    qint64 num;
+
+    out << "cmd write addr=" << showbase << hex << uppercasedigits << adr << endl;
+    out << dec;
 
     if ( !cmdConnect() ) {
         out << "Error: can't to connect to board" << endl;
@@ -155,7 +182,7 @@ bool Serial::cmdWrite( QString )//w )
     if ( sendcmd( WRT, answer ) ) {
         out << "We read " << answer.size() << " bytes" << endl;
         if ( answer[0] == ACK ) {
-            out << "Get ACK byte on cmd Write memory" << endl;
+            out << "Get ACK byte on cmd Write memory start" << endl;
             ret = true;
         } else {
             out << "Left byte: " << hex << (quint8)answer[0] << dec << " recived" << endl;
@@ -163,5 +190,30 @@ bool Serial::cmdWrite( QString )//w )
     } else {
         out << "Failed" << endl;
     }
+
+    // отправим адрес и xor сумму
+    fillArrayFromQuint32( adr, wba );
+    wba.append( calcXOR( wba ) );
+    for ( int i = 0; i < wba.size(); i++ ) {
+        out << "wba[" << dec << i << "]=" << showbase << hex << (quint8)wba[i] << endl;
+    }
+    num = write( wba );
+    if ( num != wba.size() ) {
+        out << "Error: can't write to port, write ret=" << (int)num << endl;
+        return false;
+    } else {
+        out << "send: " << wba.size() << " bytes" << endl;
+    }
+    if ( !waitForReadyRead( 500 ) ) {
+        out << "Error: no data read on cmd Get" << endl;
+        return false;
+    }
+    answer = read( 50 );
+    if ( answer[0] == ACK ) {
+        out << "get second ACK" << endl;
+    } else {
+        out << "Left second: " << hex << (quint8)answer[0] << dec << endl;
+    }
+
     return ret;
 }

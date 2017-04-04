@@ -41,8 +41,8 @@ int main(int argc, char *argv[])
     QString port; // serial port name
     qint32 baudRate; // serial baud rate
 
-    bool bwrt = false;
-    QString wrt;
+    QString sadr;
+    quint32 address;
 
     QCommandLineParser parser;
     parser.setApplicationDescription("App for stm32 flash erase, write, read via boot loader");
@@ -72,16 +72,18 @@ int main(int argc, char *argv[])
     // option for different commands
     QCommandLineOption optCmd( QStringList( {"c", "cmd"} ) );
     optCmd.setDescription( "Pass command, next commands are allowed:\n"
-                               "<connect> - Test for connection with stm's bootloader.\n"
-                               "<get>     - Gets the version and the allowed commands supported by the current version of the bootloader.\n");
+                           "<connect> - Test for connection with stm's bootloader.\n"
+                           "<get>     - Gets the version and the allowed commands supported by the current version of the bootloader.\n"
+                           "<write>   - Write binary data from file (*.bin) to flash\n"
+                           );
     optCmd.setValueName("command");
     parser.addOption( optCmd );
 
-    QCommandLineOption optWrite( QStringList( {"w", "write"} ) );
-    optWrite.setDescription("Write operation. Default address 0x08000000.");
-    optWrite.setValueName("address");
-    optWrite.setDefaultValue("0x08000000");
-    parser.addOption( optWrite );
+    QCommandLineOption optAdr( QStringList( {"a", "address"} ) );
+    optAdr.setDescription("Write operation. Default address 0x08000000.");
+    optAdr.setValueName("address");
+    optAdr.setDefaultValue("0x08000000");
+    parser.addOption( optAdr );
 
     parser.process( a ); // Process the actual command line arguments given by the user
 
@@ -110,12 +112,14 @@ int main(int argc, char *argv[])
         bcmd = true;
     }
 
-    if ( parser.isSet( optWrite ) ) {
-        bwrt = true;
-        wrt = parser.value( optWrite );
+    sadr = parser.value( optAdr );
+    address = parser.value( optAdr ).toUInt( &ok, 16 );
+    if ( ok == false ) {
+        out << "Address value is false." << endl;
+        return -1;
     }
 
-    if ( !bcmd && !bwrt ) {
+    if ( !bcmd ) {
         out << "You must add command line option." << endl;
         return -1;
     }
@@ -124,7 +128,9 @@ int main(int argc, char *argv[])
     out << "PortName: " << se.getPortName() << endl;
     out << "BaudRate: " << se.getBaudRate() << endl;
 
-    se.Open();
+    if ( !se.Open() ) {
+        return -1;
+    }
 
     if ( bcmd == true ) {
         QString cmd = parser.value( optCmd );
@@ -135,14 +141,13 @@ int main(int argc, char *argv[])
         } else if ( cmd == "get" ) // get cmd 0x00
         {
             se.cmdGet();
+        } else if ( cmd == "write" )
+        {
+            se.cmdWrite( address );
         } else
         {
             out << "unknown command: " << cmd << endl;
         }
-    }
-
-    if ( bwrt == true ) {
-        se.cmdWrite( wrt );
     }
 
     se.Close();

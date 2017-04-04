@@ -36,7 +36,7 @@ public:
 
     bool cmdConnect();
     bool cmdGet();
-    bool cmdWrite( QString w );
+    bool cmdWrite( quint32 adr );
 
 private:
     QTextStream &out;
