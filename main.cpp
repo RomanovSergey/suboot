@@ -66,7 +66,7 @@ int main(int argc, char *argv[])
     QCommandLineOption optBaudrate( QStringList( {"b", "baudrate"} ) );
     optBaudrate.setDescription("Set Baudrate value. Default 115200.");
     optBaudrate.setValueName("baudrate");
-    optBaudrate.setDefaultValue("115200");
+    optBaudrate.setDefaultValue("9600");
     parser.addOption( optBaudrate );
 
     // option for different commands

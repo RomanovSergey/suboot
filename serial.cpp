@@ -60,9 +60,9 @@ bool Serial::sendcmd( char cmd, QByteArray &answer)
     qint64 num;
     QByteArray wba;
 
-    wba[0] = cmd;
-    wba[1] = 0xFF; // ? not documented, but without it do not work
-    wba[2] = ~wba[0];
+    wba.append( cmd );
+    wba.append( 0xFF ); // ? not documented, but without it do not work
+    wba.append( ~wba[0] );
 
     num = write( wba );
     if ( num != wba.size() ) {
@@ -84,22 +84,33 @@ bool Serial::sendcmd( char cmd, QByteArray &answer)
  */
 bool Serial::cmdConnect()
 {
-    bool ret = false;
     QByteArray answer;
+    QByteArray wba;
+    qint64 num;
 
-    if ( sendcmd( CON, answer ) ) {
-        out << "We read " << answer.size() << " bytes" << endl;
-        if ( answer[0] == ACK ) {
-            out << "Get ACK byte on cmd Connect" << endl;
-            ret = true;
-            out << showbase;
-        } else {
-            out << "Left byte: " << hex << (quint8)answer[0] << dec << endl;
-        }
+    wba.append( CON );
+
+    num = write( wba );
+    if ( num != wba.size() ) {
+        out << "Error: can't write to port, write ret=" << (int)num << endl;
+        return false;
     } else {
-        out << "Failed" << endl;
+        out << "send: " << wba.size() << " bytes on connect" << endl;
     }
-    return ret;
+    if ( !waitForReadyRead( 500 ) ) {
+        out << "Error: no data read on cmd Get" << endl;
+        return false;
+    }
+    answer = read( 50 );
+
+    if ( answer[0] == ACK ) {
+        out << "Get ACK byte on cmd Connect" << endl;
+    } else {
+        out << "Left byte: " << hex << (quint8)answer[0] << dec << endl;
+        return false;
+    }
+
+    return true;
 }
 
 bool Serial::cmdGet()
@@ -107,6 +118,7 @@ bool Serial::cmdGet()
     bool ret = false;
     QByteArray answer;
 
+    out << "send connect byte" << endl;
     if ( !cmdConnect() ) {
         out << "Error: can't to connect to board" << endl;
         return false;
@@ -171,27 +183,35 @@ bool Serial::cmdWrite( quint32 adr )
     QByteArray wba;
     qint64 num;
 
-    out << "cmd write addr=" << showbase << hex << uppercasedigits << adr << endl;
-    out << dec;
-
+    out << endl << "send connect byte" << endl;
     if ( !cmdConnect() ) {
         out << "Error: can't to connect to board" << endl;
         return false;
     }
 
+    out << endl << "send write cmd" << endl;
     if ( sendcmd( WRT, answer ) ) {
         out << "We read " << answer.size() << " bytes" << endl;
         if ( answer[0] == ACK ) {
             out << "Get ACK byte on cmd Write memory start" << endl;
             ret = true;
         } else {
-            out << "Left byte: " << hex << (quint8)answer[0] << dec << " recived" << endl;
+            out << "Left bytes: " << hex << endl;
+            for ( int i = 0; i < answer.size(); i++ ) {
+                out << (quint8)answer[i] << endl;
+            }
+            out << dec;
+            return false;
         }
     } else {
         out << "Failed" << endl;
+        return false;
     }
 
     // отправим адрес и xor сумму
+    out << endl << "write: will send address and xor summ." << endl;
+    out << "cmd write addr=" << showbase << hex << uppercasedigits << adr << endl;
+    out << dec;
     fillArrayFromQuint32( adr, wba );
     wba.append( calcXOR( wba ) );
     for ( int i = 0; i < wba.size(); i++ ) {
@@ -210,7 +230,7 @@ bool Serial::cmdWrite( quint32 adr )
     }
     answer = read( 50 );
     if ( answer[0] == ACK ) {
-        out << "get second ACK" << endl;
+        out << "get ACK on address send" << endl;
     } else {
         out << "Left second: " << hex << (quint8)answer[0] << dec << endl;
     }
